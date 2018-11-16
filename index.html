@@ -110,13 +110,14 @@
 <body>
     <ul class="nav nav-tabs" id="myTab" role="tablist">
         <li class="nav-item">
-          <a class="nav-link active" id="home-tab" data-toggle="tab" href="#home" role="tab" aria-controls="home" aria-selected="true">Home</a>
+          <a class="nav-link active" href="http://data.syrgov.net/datasets/code-violations?geometry=-76.429%2C42.947%2C-75.246%2C43.122" id="home-tab" data-toggle="tab" href="#home" role="tab" aria-controls="home" aria-selected="true">Home</a>
+          </a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" id="about_tab" data-toggle="tab" href="#about" role="tab" aria-controls="about" aria-selected="false">About Us</a>
+          <a class="nav-link" id="about_tab" href="http://www.innovatesyracuse.com/our-work/" data-toggle="tab" href="#about" role="tab" aria-controls="about" aria-selected="false">About Us</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" id="contact-tab" data-toggle="tab" href="#contact" role="tab" aria-controls="contact" aria-selected="false">Contact</a>
+          <a class="nav-link" id="contact-tab" href="mailto:syracuseiteam@gmail.com" data-toggle="tab" href="#contact" role="tab" aria-controls="contact" aria-selected="false">Contact</a>
         </li>
       </ul>
       <div class="tab-content" id="myTabContent">
@@ -126,15 +127,21 @@
       </div>
       <div class="background">
 
-          <div class="span1"><img class="center-block" src="syracuse.jpg" width="900px"> </div>
-      </div>
+
+        </div>
+          <div class="span"><img src="syracuse.jpg" class="syracuse">
+        
+            <div id="searchFunc">
+            <form id="searchForm">
+                <input type="text" id='searchInput' placeholder="Search Local Address">
+            </form>
+        </div>
+        </div>
+     
+        </div>
 
     
-    <div id="searchFunc">
-        <form id="searchForm">
-            <input type="text" id='searchInput' placeholder="Search local address">
-        </form>
-    </div>
+
     </div>
 
     <div>
@@ -153,5 +160,4 @@
     </div>
 </body>
 </html>
-
 
