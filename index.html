@@ -1,22 +1,36 @@
+-- 
+    TO RUN THIS INDEX.HTML FILE:
+    You need to run a local server.
+    To do so, make sure the current directory is a nodeJS directory 
+    (so run 'npm init' in the cmd prompt)
+    Then, you need the http-server module globally installed (run 'npm install -g http-server')
+    Finally, to run the server type 'http-server .'
+    Navigate to the given IP in Chrome
+-->
+
 <!DOCTYPE html>
 <html>
+
 <head>
     <meta charset="utf-8" />
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <title>Capstone</title>
     <meta name="viewport" content="width=device-width, initial-scale=1">
     <link rel="stylesheet" type="text/css" media="screen" href="main.css" />
-    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm" crossorigin="anonymous">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.0.0/css/bootstrap.min.css" integrity="sha384-Gn5384xqQ1aoWXA+058RXPxPg6fy4IWvTNh0E263XmFcJlSAwiGgFAW/dAiS6JXm"
+        crossorigin="anonymous">
     <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
     <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="jquery.csv.js"></script>
     <script type="JSON" src="Code_violations.json"></script>
+
 
     <script>
         // This function sends the AJAX call to retreive JSON data from the API
         // query variable is passed to the URL so that it retrieves all data with query as a name
         // (it does pattern matching so query doesn't need to be exact)
         function queryData(query) {
-            console.log("query: ",query);
+            console.log("query: ", query);
             var xhttp = new XMLHttpRequest();
             var violation_status;
             xhttp.onreadystatechange = function () {
@@ -24,13 +38,26 @@
                     violation_status = JSON.parse(xhttp.responseText);
 
                     // once the call is successful, pass the features data to mapData
-                    mapData(violation_status.features);
+                    mapData(violation_status.features, query);
                 }
             }
-            xhttp.open('GET', 'https://services6.arcgis.com/bdPqSfflsdgFRVVM/arcgis/rest/services/Code_violations/FeatureServer/0/query?where=UPPER(property_address)%20like%20%27%25' + query + '%25%27&outFields=property_address,property_zip,property_id,violation_name,violation_date,violation_status,case_number,case_type&returnGeometry=false&outSR=4326&f=json', true);
+            xhttp.open('GET', 'https://services6.arcgis.com/bdPqSfflsdgFRVVM/arcgis/rest/services/Code_violations/FeatureServer/0/query?where=UPPER(property_address)%20like%20%27%25' + query + '%25%27&outFields=property_address,property_zip,property_id,violation_name,violation_date,violation_status,case_number,case_type,property_id&returnGeometry=false&outSR=4326&f=json', true);
             xhttp.send();
         }
         var isSearchSubmitted = false;
+
+        // THIS CODE HERE READS IN THE CSV FILE AND STORES INTO CSV_DATA
+        var csv_data;
+        var rawFile = new XMLHttpRequest();
+        rawFile.addEventListener("load", reqListener);
+        rawFile.open("GET", "rental_registry.csv", true);
+        rawFile.send();
+        function reqListener() {
+            var csvText = rawFile.responseText;
+            csv_data = $.csv.toObjects(csvText);
+            console.log(csv_data);
+        }
+
         // since AJAX calls reload the page each time, this function is called after each search
         $(document).ready(function () {
             // set isSearchSubmitted to true (so that only search data is returned instead of all)
@@ -48,7 +75,7 @@
         });
 
         // Use this function to display all data in the table
-        function mapData(data) {
+        function mapData(data, query) {
             // store each house information into the houses array
             var houses = [];
 
@@ -63,14 +90,43 @@
             // iterate through data, and store all attributes into houses array
             for (var k in data) {
                 houses[k] = data[k].attributes;
-               // console.log(houses[k]);
+                // Default: No inspection is found
+                // If one is found, this value gets overwritten
+                houses[k].inspection = "No Inspection Found";
+                // Cross reference the property ID given with all property ID's in csv data
+                for (var j in csv_data) {
+                    // if found (and its not empty), update the inspection value
+                    if (houses[k].property_id == csv_data[j].Identifier && csv_data[j]['Last Passed Inspection'] != "") {
+                        houses[k].inspection = csv_data[j]['Last Passed Inspection'];
+                    }
+                }
+                // console.log(houses[k]);
             }
 
-            // if houses is empty (meaning no data was found),
-            // display an error message
+            // if houses is empty (meaning no data from the api was found),
+            // check to see if the query is found in the csv file
+            // NOTE: This only checks for EXACT House number and Address inputs
+            // i.e. -> '1025 Milton Ave' will return data, but 'Milton Ave', or '1025 Milton' won't
             if (houses.length == 0) {
                 // console.log('no data to display');
-
+                // i var is needed to increment the location of the houses array
+                var i = 0;
+                for (var k in csv_data) {
+                    if (query == csv_data[k].Number + " " + csv_data[k].Address) {
+                        // if the address is found, update all info in houses onject
+                        houses[i] = [];
+                        houses[i].property_address = csv_data[k].Number + " " + csv_data[k].Address;
+                        houses[i].case_type = "";
+                        houses[i].violation_status = "";
+                        houses[i].violation_date = "";
+                        houses[i].inspection = csv_data[k]['Last Passed Inspection'];
+                        i++;
+                    }
+                }
+            }
+            // if houses is empty (meaning no data was found in api OR csv),
+            // return error message
+            if (houses.length == 0) {
                 // If there is no data to display, remove the head column
                 thead.innerHTML = '';
                 tbody.innerHTML = '<h2>No Code Violations Found.<h2>';
@@ -78,8 +134,8 @@
             // otherwise, iterate through houses and map each value to the table
             else {
                 // Display the header column for the table (same code from HTML tag below)
-                thead.innerHTML = '<th>Address Name</th><th> Case Type</th><th>Violation date</th><th>Violation Status</th>';
-
+                thead.innerHTML = '<th>Address Name</th><th> Case Type</th><th>Violation date</th><th>Violation Status</th><th>Inspection Date</th>';
+                console.log(houses);
                 for (var k in houses) {
                     // puts address, case type, and violation statues into each table row cell
                     tr = tbody.insertRow(tbody.rows.length);
@@ -90,74 +146,82 @@
                     td.innerHTML = houses[k].case_type;
                     td = tr.insertCell(tr.cells.length);
 
-                    var date = new Date(houses[k].violation_date);
-                    var month = date.getUTCMonth() + 1; //months from 1-12
-                    var day = date.getUTCDate();
-                    var year = date.getUTCFullYear();
-                    td.innerHTML = month + "/" + day + "/" + year;
-                    td = tr.insertCell(tr.cells.length);
+                    // if the date is empty, just display nothing
+                    if (houses[k].violation_date == "") {
+                        td.innerHTML = houses[k].violation_date;
+                        td = tr.insertCell(tr.cells.length);
+                    }
+                    // otherwise, display date  
+                    else {
+                        date = new Date(houses[k].violation_date);
+                        var month = date.getUTCMonth() + 1; //months from 1-12
+                        var day = date.getUTCDate();
+                        var year = date.getUTCFullYear();
+                        td.innerHTML = month + "/" + day + "/" + year;
+                        td = tr.insertCell(tr.cells.length);
+                    }
 
                     td.innerHTML = houses[k].violation_status;
                     // insert row
                     td = tr.insertCell(tr.cells.length);
+
+
+                    td.innerHTML = houses[k].inspection;
+                    td = tr.insertCell(tr.cells.length);
                 }
             }
         }
-
-    
     </script>
 </head>
+
 <body>
     <ul class="nav nav-tabs" id="myTab" role="tablist">
         <li class="nav-item">
-          <a class="nav-link active" href="http://data.syrgov.net/datasets/code-violations?geometry=-76.429%2C42.947%2C-75.246%2C43.122" id="home-tab" data-toggle="tab" href="#home" role="tab" aria-controls="home" aria-selected="true">Home</a>
-          </a>
+            <a class="nav-link active" id="home-tab" data-toggle="tab" href="#home" role="tab" aria-controls="home"
+                aria-selected="true">Home</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" id="about_tab" href="http://www.innovatesyracuse.com/our-work/" data-toggle="tab" href="#about" role="tab" aria-controls="about" aria-selected="false">About Us</a>
+            <a class="nav-link" id="about_tab" data-toggle="tab" href="#about" role="tab" aria-controls="about"
+                aria-selected="false">About Us</a>
         </li>
         <li class="nav-item">
-          <a class="nav-link" id="contact-tab" href="mailto:syracuseiteam@gmail.com" data-toggle="tab" href="#contact" role="tab" aria-controls="contact" aria-selected="false">Contact</a>
+            <a class="nav-link" id="contact-tab" data-toggle="tab" href="#contact" role="tab" aria-controls="contact"
+                aria-selected="false">Contact</a>
         </li>
-      </ul>
-      <div class="tab-content" id="myTabContent">
+    </ul>
+    <div class="tab-content" id="myTabContent">
         <div class="tab-pane fade show active" id="home" role="tabpanel" aria-labelledby="home-tab">...</div>
         <div class="tab-pane fade" id="profile" role="tabpanel" aria-labelledby="profile-tab">...</div>
         <div class="tab-pane fade" id="contact" role="tabpanel" aria-labelledby="contact-tab">...</div>
-      </div>
-      <div class="background">
+    </div>
+    <div class="background">
+
+        <div class="span1"><img class="center-block" src="syracuse.jpg" width="900px"> </div>
+    </div>
 
 
-        </div>
-          <div class="span"><img src="syracuse.jpg" class="syracuse">
-        
-            <div id="searchFunc">
-            <form id="searchForm">
-                <input type="text" id='searchInput' placeholder="Search Local Address">
-            </form>
-        </div>
-        </div>
-     
-        </div>
-
-    
-
+    <div id="searchFunc">
+        <form id="searchForm">
+            <input type="text" id='searchInput' placeholder="Search local address">
+        </form>
+    </div>
     </div>
 
     <div>
         <table class="table">
-                    <col align="left">
-                    <col align="right">
-                    <col align="right">
-                    <thead id="thead">
+            <col align="left">
+            <col align="right">
+            <col align="right">
+            <thead id="thead">
 
-                    </thead>
-                    <tbody id="table_body">
+            </thead>
+            <tbody id="table_body">
 
-                    </tbody>
-             
-                  </table>
+            </tbody>
+
+        </table>
     </div>
 </body>
+
 </html>
 
