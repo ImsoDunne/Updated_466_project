@@ -1,4 +1,4 @@
--- 
+<!-- 
     TO RUN THIS INDEX.HTML FILE:
     You need to run a local server.
     To do so, make sure the current directory is a nodeJS directory 
@@ -41,7 +41,7 @@
                     mapData(violation_status.features, query);
                 }
             }
-            xhttp.open('GET', 'https://services6.arcgis.com/bdPqSfflsdgFRVVM/arcgis/rest/services/Code_violations/FeatureServer/0/query?where=UPPER(property_address)%20like%20%27%25' + query + '%25%27&outFields=property_address,property_zip,property_id,violation_name,violation_date,violation_status,case_number,case_type,property_id&returnGeometry=false&outSR=4326&f=json', true);
+            xhttp.open('GET', 'https://services6.arcgis.com/bdPqSfflsdgFRVVM/arcgis/rest/services/Code_violations/FeatureServer/0/query?where=UPPER(property_address)%20like%20%27%25' + query + '%25%27&outFields=property_address,property_zip,property_id,violation_name,violation_date,violation_status,case_number,case_type,property_id,property_owner_name&returnGeometry=false&outSR=4326&f=json', true);
             xhttp.send();
         }
         var isSearchSubmitted = false;
@@ -55,7 +55,7 @@
         function reqListener() {
             var csvText = rawFile.responseText;
             csv_data = $.csv.toObjects(csvText);
-            console.log(csv_data);
+           // console.log(csv_data);
         }
 
         // since AJAX calls reload the page each time, this function is called after each search
@@ -78,6 +78,8 @@
         function mapData(data, query) {
             // store each house information into the houses array
             var houses = [];
+            var weights = initWeights();
+            console.log("weights ", weights);
 
             // get the table elements
             var tr, td;
@@ -92,7 +94,8 @@
                 houses[k] = data[k].attributes;
                 // Default: No inspection is found
                 // If one is found, this value gets overwritten
-                houses[k].inspection = "Not Found In Rental Regisrtry";
+                houses[k].inspection = "Not in Rental Registry";
+                houses[k].weight = 0;
                 // Cross reference the property ID given with all property ID's in csv data
                 for (var j in csv_data) {
                     // if found (and its not empty), update the inspection value
@@ -100,7 +103,11 @@
                         houses[k].inspection = csv_data[j]['Last Passed Inspection'];
                     }
                 }
-                // console.log(houses[k]);
+                // Check if violation name is in weight map
+                if (houses[k].violation_name in weights) {
+                    houses[k].weight = weights[houses[k].violation_name];
+                }
+                 console.log(houses[k]);
             }
 
             // if houses is empty (meaning no data from the api was found),
@@ -119,6 +126,7 @@
                         houses[i].case_type = "";
                         houses[i].violation_status = "No Violations Found";
                         houses[i].violation_date = "";
+                        houses[i].weight = "";
                         houses[i].inspection = csv_data[k]['Last Passed Inspection'];
                         i++;
                     }
@@ -134,8 +142,9 @@
             // otherwise, iterate through houses and map each value to the table
             else {
                 // Display the header column for the table (same code from HTML tag below)
-                thead.innerHTML = '<th>Address Name</th><th> Case Type</th><th>Violation date</th><th>Violation Status</th><th>Inspection Date</th>';
-                console.log(houses);
+
+                thead.innerHTML = '<th>Address Name</th><th>Property owner</th><th> Case Type</th><th>Violation date</th><th>Violation Status</th><th>Inspection Date</th><th>Weight</th>';
+               // console.log(houses);
                 for (var k in houses) {
                     // puts address, case type, and violation statues into each table row cell
                     tr = tbody.insertRow(tbody.rows.length);
@@ -143,7 +152,10 @@
                     td.innerHTML = houses[k].property_address;
 
                     td = tr.insertCell(tr.cells.length);
-                    td.innerHTML = houses[k].case_type;
+                    td.innerHTML = houses[k].property_owner_name;
+                    td = tr.insertCell(tr.cells.length);
+
+                    td.innerHTML = houses[k].violation_name ;
                     td = tr.insertCell(tr.cells.length);
 
                     // if the date is empty, just display nothing
@@ -168,8 +180,108 @@
 
                     td.innerHTML = houses[k].inspection;
                     td = tr.insertCell(tr.cells.length);
+
+                    td.innerHTML = houses[k].weight;
+                    td = tr.insertCell(tr.cells.length);
                 }
             }
+        }
+
+        // Initialize Code Violation Name weights. This is a translation of R Code given.
+        function initWeights() {
+            var weights = {};
+            weights["2015 IMPC - 304.1.1 - Unsafe Conditions"] = 6;
+            weights["2015 IMPC - 602.1 - Facilities Required"] = 6;
+            weights["2015 IMPC - 602.2 - Residential Occupancies"] = 6;
+            weights["2015 IMPC - 602.3 - Heat Supply"] = 6;
+            weights["2015 IMPC - 602.5 - Room Temperature Measurement"] = 6;
+            weights["2015 IMPC - 505.1 - General"] = 6;
+            weights["2015 IMPC - 506.1 - General"] = 6;
+            weights["2015 IMPC - 506.2 - Maintenance"] = 6;
+            weights["2015 IPMV Section 506.2 Sewer And Waste Lines"] = 6;
+            weights["2015 IFC - 506.1 - Where Required"] = 6;
+            weights["2010 IFC - Section 506.2 - Key box maintenance"] = 6;
+            weights["2010 IFC - Section 505.1 - Address numbers" ] = 6;
+            weights["2010 IMC - Section 602.1 - Facilities required|" ] = 6;
+            weights["2010 IMC - Section 602.2 - Residential occupancies|"] = 6;
+            weights["2010 IMC - Section 602.3 - Heat supply"] = 6;
+            weights["2010 IMC - Section 505.1- General" ] = 6;
+            weights["2010 IMC - Section 506.1 - General" ] = 6;
+            weights["2010 IMC - Section 506.2 - Maintenance"] = 6;
+            weights["2010 IMC - Section 108.1.1 - Unsafe Structure"] = 6;
+            weights["2010 IMC - Section 304.5 - Foundation walls" ] = 6;
+            weights["Section 506 - Sanitary Drainage System"] = 6;
+            weights["2015 IMPC - 704.2.1 - Where Required"] = 6;
+            weights["2015 IMPC - 704.2.1.1 - Group R-1"] = 6;
+            weights["2015 IMPC - 704.2.1.2 - Groups R-2, R-3, R-4 and I-1"] = 6;
+            weights["2015 IMPC - 704.2.4 - Smoke Detection System"] = 6;
+            weights["2010 IMC - Section 107.1.3 - Premises Unfit for Human Occupancy"] = 6;
+            weights["2010 IFC - Section 704.2 - Opening protectives"] = 6;
+            weights["2010 IMC - Section 107.1.3 - Structure Unfit for Human Occupancy"] = 6;
+            weights["2015 IPMC Section 604.3 Electrical System Hazards"] = 6;
+            weights["2010 IMC - Section 604.3 - Electrical system hazards"] = 6;
+
+            weights["2015 IMPC - 604.3 - Electrical System Hazards"] = 4;
+            weights["2015 IMPC - 604.3.1 - Abatement of Electrical Hazard"] = 4;
+            weights["2015 IMPC - 604.3.1.1 - Electrical Equipment"] = 4;
+            weights["2015 IMPC - 403.2 - Bathrooms and Toilet Rooms"] = 4;
+            weights["2015 IMPC - 309.1 - Infestation"] = 4;
+            weights["2015 IMPC - 309.2 - Owner"] = 4;
+            weights["2015 IMPC - 309.3 - Single Occupant"] = 4;
+            weights["2015 IMPC - 309.4 - Multiple Occupancy"] = 4;
+            weights["2015 IMPC - 309.5 - Occupant"] = 4;
+            weights["2015 IMPC - 604.3.1 - Abatement of Electrical Hazard"] = 4;
+            weights["2015 IMPC - 604.3.1.1 - Electrical Equipment"] = 4;
+            weights["2015 IPMC Section 604.3 Electrical System Hazards"] = 4;
+            weights["2015 IPMC Section 309.1 Infestation" ] = 4;
+            weights["2015 IPMC Section 309.2 Owner" ] = 4;
+            weights["2015 IPMC Section 309.3 Single occupant"] = 4;
+            weights["2015 IPMC Section 309.4 Multiple Occupancy"] = 4;
+            weights["2010 IMC - Section 403.2 - Bathrooms and toilet rooms"] = 4;
+            weights["2010 IMC - Section 308.1 - Infestation"] = 4;
+
+            weights["2015 IMPC - 504.1 - General"] = 3;
+            weights["2015 IMPC - 604.3 - Electrical System Hazards"] = 3;
+            weights["2015 IMPC - 304.11 - Chimneys and Towers"] = 3;
+            weights["2015 IMPC - 304.7 - Roofs and Drainage"] = 3;
+            weights["2015 IMPC - 304.10 - Stairways, Decks, Porches and B"] = 3;
+            weights["2015 IMPC - 304.12 - Handrails and Guards"] = 3;
+            weights["2015 IMPC - 304.13 - Window, Skylight and Door Frame"] = 3;
+            weights["2015 IMPC - 304.13.1 - Glazing" ] = 3;
+            weights["2015 IMPC - 304.13.2 - Openable Windows"] = 3;
+            weights["2015 IMPC - 304.15 - Doors"] = 3;
+            weights["2015 IMPC - 304.12 - Handrails and Guards"] = 3;
+            weights["2015 IPMC Section 504.1 Plumbing Fixtures And Pipes"] = 3;
+            weights["2015 IPMC Section 304.7 Roofing"] = 3;
+            weights["2015 IPMC Section 304.10 Stairs, Decks, Porches"] = 3;
+            weights["2015 IPMC Section 304.13 Weathertight Window, Door"] = 3;
+            weights["2015 IPMC Section 304.15 Doors And Locks"] = 3;
+            weights["2010 IFC - Section 305.1 - Clearance from ignition sou" ] = 3;
+            weights["2010 IMC - Section 504.1 - General"] = 3;
+            weights["2010 IMC - Section 304.11 - Chimneys and towers"] = 3;
+            weights["2010 IMC - Section 304.7 - Roofs and drainage"] = 3;
+            weights["2010 IMC - Section 305.1 - General"] = 3;
+            weights["2010 IMC - Section 304.10 - Stairways, decks, porches"] = 3;
+            weights["2010 IMC - Section 304.12 - Handrails and guards"] = 3;
+            weights["2010 IMC - Section 304.6 - Exterior walls"] = 3;
+            weights["2010 IMC - Section 304.15 - Doors"] = 3;
+            weights["2010 IMC - Section 304.12 - Handrails and guards"] = 3;
+            weights["2010 IMC - Section 304.13 - Window, skylight and door frames"] = 3;
+            weights["2010 IMC - Section 304.13.2 - Openable windows"] = 3;
+
+            weights["2015 IMPC - 304.6 - Exterior Walls"] = 2;
+            weights["2015 IMPC - 304.8 - Decorative Features"] = 2;
+            weights["2015 IMPC - 304.14 - Insect Screens"] = 2;
+            weights["2015 IMPC - 304.15 - Doors"] = 2;
+            weights["2015 IPMC Section 304.14 Screens"] = 2;
+            weights["2015 IPMC Section 304.8 Trim" ] = 2;
+            weights["2010 IMC - Section 304.6 - Exterior walls"] = 2;
+            weights["2010 IMC - Section 304.8 - Decorative features"] = 2;
+            weights["2010 IMC - Section 304.5 - Foundation walls"] = 2;
+        
+
+            
+            return weights;
         }
     </script>
 </head>
@@ -178,23 +290,20 @@
     <ul class="nav nav-tabs" id="myTab" role="tablist">
         <li class="nav-item">
             <a class="nav-link active" id="home-tab" href="http://data.syrgov.net/datasets/code-violations?geometry=-76.429,42.947,-75.246,43.122" data-toggle="tab" href="#home" role="tab" aria-controls="home"
-                aria-selected="true">Home</a>
+               aria-selected="true">Dataset</a>
         </li>
         <li class="nav-item">
             <a class="nav-link" id="about_tab" href="http://www.innovatesyracuse.com/our-work/" data-toggle="tab" href="#about" role="tab" aria-controls="about"
-                aria-selected="false">About Us</a>
+               aria-selected="false">Team Us</a>
         </li>
         <li class="nav-item">
             <a class="nav-link" id="contact-tab" href="http://www.innovatesyracuse.com/our-team/" data-toggle="tab" href="#contact" role="tab" aria-controls="contact"
-                aria-selected="false">Contact</a>
+               aria-selected="false">Contact</a>
         </li>
     </ul>
-    <div class="tab-content" id="myTabContent">
-        <div class="tab-pane fade show active" id="home" role="tabpanel" aria-labelledby="home-tab"></div>
-        <div class="tab-pane fade" id="profile" role="tabpanel" aria-labelledby="profile-tab"></div>
-        <div class="tab-pane fade" id="contact" role="tabpanel" aria-labelledby="contact-tab"></div>
-    </div>
+
     <div class="background">
+
     </div>
 
 
@@ -213,13 +322,10 @@
             <thead id="thead">
 
             </thead>
-            <tbody id="table_body">
-
-            </tbody>
+            <tbody id="table_body"></tbody>
 
         </table>
     </div>
 </body>
 
 </html>
-
